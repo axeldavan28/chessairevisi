@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chess AI</title>
+
+<link rel="stylesheet"
+href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+
+<style>
+body{
+    margin:0;
+    min-height:100vh;
+    padding:20px;
+    box-sizing:border-box;
+
+    background:
+    linear-gradient(
+    135deg,
+    #5b3d2e,
+    #8b6a4f,
+    #a57c52
+    );
+
+    font-family:Arial,sans-serif;
+
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+}
+
+#board{
+    width:620px;
+    max-width:60vw;
+    border:8px solid #3d2b22;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:
+    0 10px 25px rgba(0,0,0,.3);
+}
+.panel{
+    width:300px;
+    background:#f8f8f8;
+    border-radius:16px;
+    padding:16px;
+
+    box-shadow:
+    0 10px 30px rgba(0,0,0,.2);
+
+    height:auto;
+    overflow:hidden;
+}
+
+.panel h3{
+    margin:15px 0 8px;
+    font-size:20px;
+}
+
+select,
+button{
+    width:100%;
+    padding:10px;
+    margin-top:8px;
+    border:none;
+    border-radius:10px;
+    font-size:15px;
+}
+
+button{
+    background:#5c4033;
+    color:white;
+    cursor:pointer;
+    transition:.2s;
+}
+
+button:hover{
+    background:#3d2b22;
+}
+
+.status{
+    margin-top:15px;
+    font-weight:bold;
+}
+
+.square-55d63{
+    position:relative;
+}
+
+.move-dot{
+    position:absolute;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:rgba(0,0,0,.35);
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    pointer-events:none;
+}
+
+.container{
+    display:flex;
+    gap:20px;
+    align-items:flex-start;
+    justify-content:center;
+    width:100%;
+    max-width:1400px;
+}
+
+.logo{
+    text-align:center;
+    margin-bottom:10px;
+    font-size:32px;
+    margin-top:0;
+    color:#5c4033;
+}
+
+.status-box{
+    margin-top:15px;
+    padding:12px;
+    background:#fff;
+    border-radius:10px;
+    text-align:center;
+    font-weight:bold;
+}
+
+.history-box{
+    height:56px;
+    overflow-y:auto;
+
+    background:#fff;
+    border-radius:10px;
+    border:1px solid #ddd;
+    padding:8px;
+
+    font-size:13px;
+}
+
+.captured-box{
+    height:40px;
+    background:#fff;
+    border:1px solid #ddd;
+    border-radius:10px;
+
+    padding:4px 8px;
+
+    display:flex;
+    align-items:center;
+    gap:4px;
+
+    overflow-x:auto;
+    overflow-y:hidden;
+}
+
+.captured-box img{
+    width:20px;
+    height:20px;
+    flex-shrink:0;
+}
+
+.modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.6);
+    z-index:9999;
+
+    justify-content:center;
+    align-items:center;
+
+    backdrop-filter:blur(4px);
+}
+
+.modal-content{
+    width:350px;
+    background:white;
+    border-radius:18px;
+    padding:25px;
+    text-align:center;
+
+    animation:pop .25s ease;
+}
+
+.modal-content h2{
+    margin-top:0;
+    color:#5c4033;
+}
+
+.modal-content button{
+    margin-top:15px;
+}
+
+@keyframes pop{
+    from{
+        transform:scale(.8);
+        opacity:0;
+    }
+    to{
+        transform:scale(1);
+        opacity:1;
+    }
+}
+
+.corner-logos{
+    position:fixed;
+    left:15px;
+    bottom:15px;
+
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+
+    z-index:999;
+}
+
+.corner-logos img{
+    width:70px;
+    height:70px;
+
+    object-fit:contain;
+
+    background:white;
+    border-radius:12px;
+    padding:5px;
+
+    box-shadow:
+    0 4px 12px rgba(0,0,0,.25);
+
+    transition:.2s;
+}
+
+.corner-logos img:hover{
+    transform:scale(1.08);
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="corner-logos">
+    <img src="logo2.jpeg" alt="MOKO">
+    <img src="logo1.jpeg" alt="SMKN 1 Sanden">
+</div>
+
+<div class="container">
+
+<div id="board"></div>
+
+<div class="panel">
+
+<h2 class="logo">♔ Chess AI</h2>
+
+<select id="mode">
+    <option value="ai">VS AI</option>
+    <option value="two">Two Player</option>
+</select>
+
+<select id="level">
+    <option value="5">Easy</option>
+    <option value="10">Normal</option>
+    <option value="15">Medium</option>
+    <option value="20">Hard</option>
+</select>
+
+<button onclick="newGame()">New Game</button>
+
+<div id="status" class="status-box">
+White to move
+</div>
+
+<button onclick="undoMove()">
+Undo Move
+</button>
+
+<h3>Captured White</h3>
+<div id="capturedWhite" class="captured-box"></div>
+
+<h3>Captured Black</h3>
+<div id="capturedBlack" class="captured-box"></div>
+
+<h3>Move History</h3>
+<div id="history" class="history-box"></div>
+</div>
+
+</div>
+
+<div id="gameModal" class="modal">
+    <div class="modal-content">
+        <h2 id="modalTitle"></h2>
+        <p id="modalMessage"></p>
+        <button onclick="closeModal()">OK</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+
+<script>
+
+const game = new Chess();
+
+let board;
+
+document
+.getElementById("mode")
+.addEventListener(
+"change",
+function(){
+
+document
+.getElementById("modeText")
+.innerText=
+this.value==="ai"
+?"Mode: VS AI"
+:"Mode: Two Player";
+
+});
+
+const stockfish = new Worker(
+"stockfish-18-lite-single.js"
+);
+
+stockfish.onerror = function(e){
+    console.error("Stockfish error:", e);
+    alert("Stockfish gagal dimuat. Pastikan file stockfish-18-lite-single.js dan .wasm berada di folder yang sama.");
+};
+
+stockfish.postMessage("uci");
+stockfish.postMessage("isready");
+stockfish.postMessage("ucinewgame");
+
+function removeHighlights(){
+    document.querySelectorAll(".move-dot").forEach(el=>el.remove());
+}
+
+function showModal(title,message){
+
+    document.getElementById("modalTitle").innerText=title;
+    document.getElementById("modalMessage").innerText=message;
+
+    document.getElementById("gameModal")
+    .style.display="flex";
+}
+
+function closeModal(){
+
+    document.getElementById("gameModal")
+    .style.display="none";
+}
+
+function updateStatus(){
+
+    removeHighlights();
+
+    let status='';
+
+    if(game.in_checkmate()){
+
+        const winner =
+        (game.turn()==='w')
+        ?'Black'
+        :'White';
+
+        status = winner + ' wins by checkmate';
+
+        showModal(
+        "♔ CHECKMATE",
+        winner + " wins!"
+        );
+
+    }
+    else if(game.in_stalemate()){
+
+        status='Draw by stalemate';
+
+        setTimeout(()=>{
+            showModal(" stalemate", "Game drawn.");
+        },100);
+
+    }
+    else if(game.in_draw()){
+
+        status='Draw';
+
+    }
+    else{
+
+        status=
+        (game.turn()==='w'
+        ?'White'
+        :'Black')
+        +' to move';
+
+        if(game.in_check()){
+
+            status+=' (CHECK)';
+
+        }
+
+    }
+
+    document.getElementById('status').innerText=status;
+}
+
+function makeAIMove(){
+
+console.log("AI THINKING");
+
+if(game.game_over()) return;
+
+const depth =
+document.getElementById('level').value;
+
+stockfish.postMessage(
+'position fen ' + game.fen()
+);
+
+stockfish.postMessage(
+'go depth ' + depth
+);
+}
+
+stockfish.onmessage = function(event){
+
+console.log("STOCKFISH:", event.data);
+
+const line = event.data;
+
+if(
+typeof line === 'string' &&
+line.startsWith('bestmove')
+){
+
+const move = line.split(' ')[1];
+
+if(move === '(none)') return;
+
+const aiMove = game.move({
+    from: move.substring(0,2),
+    to: move.substring(2,4),
+    promotion: 'q'
+});
+
+if(aiMove){
+
+    board.position(game.fen());
+
+    updateStatus();
+    updateHistory();
+}
+
+}
+};
+
+function updateHistory(){
+
+    const historyDiv =
+    document.getElementById("history");
+
+    const moves =
+    game.history();
+
+    let html="";
+
+    for(let i=0;i<moves.length;i+=2){
+
+        html += `
+        <div style="
+        display:flex;
+        justify-content:space-between;
+        padding:4px 0;
+        border-bottom:1px solid #eee;
+        ">
+            <span>${Math.floor(i/2)+1}.</span>
+            <span>${moves[i] || ""}</span>
+            <span>${moves[i+1] || ""}</span>
+        </div>
+        `;
+    }
+
+    historyDiv.innerHTML = html;
+}
+
+function undoMove(){
+
+if(game.history().length===0)
+return;
+
+if(document.getElementById("mode").value==="ai"){
+
+    if(game.history().length>=2){
+        game.undo();
+        game.undo();
+    }
+
+}else{
+
+    game.undo();
+
+}
+
+board.position(game.fen());
+
+    updateStatus();
+    updateHistory();
+    updateCapturedPieces();
+}
+
+function getPromotion(source,target){
+
+let promotion='q';
+
+const piece=game.get(source);
+
+if(
+piece &&
+piece.type==='p' &&
+(
+(target[1]==='8' && piece.color==='w') ||
+(target[1]==='1' && piece.color==='b')
+)
+){
+
+promotion = prompt(
+'Promote to:\nq = Queen\nr = Rook\nb = Bishop\nn = Knight',
+'q'
+);
+
+promotion=(promotion||'q').toLowerCase();
+
+if(!['q','r','b','n'].includes(promotion)){
+promotion='q';
+}
+
+}
+
+return promotion;
+}
+
+let selectedSquare = null;
+
+function removeHighlights(){
+
+    document
+    .querySelectorAll(".move-dot")
+    .forEach(el => el.remove());
+
+}
+
+function showLegalMoves(square){
+
+    removeHighlights();
+
+    const moves = game.moves({
+        square: square,
+        verbose: true
+    });
+
+    moves.forEach(move => {
+
+        const target =
+        document.querySelector(
+            '.square-' + move.to
+        );
+
+        if(target){
+
+            const dot =
+            document.createElement("div");
+
+            dot.className = "move-dot";
+
+            target.appendChild(dot);
+
+        }
+
+    });
+
+}
+
+function handleSquareClick(square){
+
+    console.log("clicked", square);
+
+    const mode =
+    document.getElementById("mode").value;
+
+    if(selectedSquare === null){
+
+        const piece = game.get(square);
+
+        if(!piece) return;
+
+        if(mode === "ai"){
+
+            if(piece.color !== "w")
+            return;
+
+        }
+
+        selectedSquare = square;
+
+        showLegalMoves(square);
+
+        return;
+    }
+
+    let promotion =
+    getPromotion(
+        selectedSquare,
+        square
+    );
+
+    let move = game.move({
+        from: selectedSquare,
+        to: square,
+        promotion: promotion
+    });
+
+    removeHighlights();
+
+    selectedSquare = null;
+
+    if(move === null){
+        return;
+    }
+
+    board.position(game.fen());
+
+    updateStatus();
+    updateHistory();
+
+    if(mode === "ai"){
+        setTimeout(makeAIMove,300);
+    }
+
+}
+
+function updateCapturedPieces(){
+
+    const whiteDiv =
+    document.getElementById("capturedWhite");
+
+    const blackDiv =
+    document.getElementById("capturedBlack");
+
+    if(!whiteDiv || !blackDiv){
+        return;
+    }
+
+    whiteDiv.innerHTML="";
+    blackDiv.innerHTML="";
+
+    const history =
+    game.history({verbose:true});
+
+    history.forEach(move=>{
+
+        if(move.captured){
+
+            const img =
+            document.createElement("img");
+
+            const pieceCode =
+            (move.color === "w"
+                ? "b"
+                : "w")
+            +
+            move.captured.toUpperCase();
+
+            img.src =
+            "https://chessboardjs.com/img/chesspieces/wikipedia/"
+            + pieceCode +
+            ".png";
+
+            img.style.width = "28px";
+            img.style.margin = "2px";
+
+            if(move.color === "w"){
+                whiteDiv.appendChild(img);
+            }else{
+                blackDiv.appendChild(img);
+            }
+
+        }
+
+    });
+
+}
+
+const config={
+
+pieceTheme:
+'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+
+draggable:true,
+
+position:'start',
+
+onDragStart:function(
+source,piece
+){
+
+if(game.game_over())
+return false;
+
+const mode =
+document.getElementById("mode").value;
+
+if(mode==="ai"){
+
+    if(game.turn()!=='w')
+        return false;
+
+    if(piece.search(/^b/)!==-1)
+        return false;
+}
+},
+
+onDrop:function(source,target){
+
+let promotion =
+getPromotion(source,target);
+
+let move = game.move({
+    from: source,
+    to: target,
+    promotion: promotion
+});
+
+if(move===null){
+    return 'snapback';
+}
+
+board.position(game.fen());
+
+    updateStatus();
+    updateHistory();
+    updateCapturedPieces();
+
+if(
+document.getElementById("mode").value==="ai"
+){
+    setTimeout(makeAIMove,300);
+}
+},
+
+onSnapEnd:function(){
+    board.position(game.fen());
+}
+};
+
+if(typeof Chessboard === "undefined"){
+    alert("Chessboard.js gagal dimuat");
+}
+
+board=Chessboard(
+'board',
+config
+);
+
+setTimeout(() => {
+
+console.log(
+document.querySelectorAll(".square-55d63").length
+);
+
+},1000);
+
+document
+.getElementById("board")
+.addEventListener("click",function(e){
+
+    const squareEl =
+    e.target.closest(".square-55d63");
+
+    if(!squareEl) return;
+
+    const classes =
+    squareEl.className.split(" ");
+
+    let square = null;
+
+    classes.forEach(c => {
+
+        if(/^square-[a-h][1-8]$/.test(c)){
+            square = c.replace("square-","");
+        }
+
+    });
+
+    if(square){
+        handleSquareClick(square);
+    }
+
+});
+
+function newGame(){
+
+game.reset();
+
+board.start();
+
+    updateStatus();
+    updateHistory();
+    updateCapturedPieces();
+}
+
+    updateStatus();
+    updateHistory();
+    updateCapturedPieces();
+
+</script>
+
+</body>
+</html>
